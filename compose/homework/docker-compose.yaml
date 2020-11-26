@@ -5,7 +5,7 @@ services:
       volumes: 
         - 'shared_apps:/shared'
    web:
-      image: tomcat:9.0
+      build: tomcat
       ports:
         - '8080:8080'
       depends_on: 
