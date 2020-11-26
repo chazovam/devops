@@ -1,0 +1,17 @@
+version: '2'
+services:
+   builder:
+      build: boxfuse
+      volumes: 
+        - 'shared_apps:/shared'
+   web:
+      image: tomcat:9.0
+      ports:
+        - '8080:8080'
+      depends_on: 
+         - builder
+      volumes: 
+        - 'shared_apps:/usr/local/tomcat/webapps'
+volumes:
+  shared_apps:
+    driver: local 
