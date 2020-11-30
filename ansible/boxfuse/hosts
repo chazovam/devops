@@ -1,0 +1,5 @@
+[builder]
+ec2-3-138-194-124.us-east-2.compute.amazonaws.com
+
+[prod]
+ec2-3-20-221-186.us-east-2.compute.amazonaws.com
