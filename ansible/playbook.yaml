@@ -1,0 +1,35 @@
+---
+- name: web servers provisioning
+  hosts: web
+  become: yes
+
+  tasks:
+  - name: Ensure nginx package is present
+    apt:
+      name: nginx
+      state: present
+
+  - name: Ensure index.html is present
+    copy:
+      src: index.html
+      dst: /var/www/html
+
+  - name: Ensure nginx service is started
+    service:
+      name: nginx
+      state: started
+
+- name: db servers provisioning
+  hosts: db
+  become: yes
+
+  tasks:
+  - name: Ensure postgresql package is present
+    apt:
+      name: postgresql
+      state: present
+
+  - name: Ensure postgresql service is started
+    service:
+      name: postgresql
+      state: started

@@ -1,0 +1,79 @@
+---
+- name: package builder servers provisioning
+  hosts: builder
+  become: yes
+
+  tasks:
+  - name: Ensure basic packages are present
+    apt:
+      name: {{ item }}
+      state: present
+    with_items:
+      - openjdk-11-jdk
+      - maven
+      - git
+
+  - name: Ensure local repository is present
+    git:
+      repo: 'https://github.com/boxfuse/boxfuse-sample-java-war-hello.git'
+      dest: /tmp/boxfuse
+
+  - name: Ensure maven package is present
+    shell: mvn clean package -f /tmp/boxfuse/pom.xml
+
+
+
+- name: Tomcat server provisioning
+  hosts: prod
+  become: yes
+
+  tasks:
+  - name: Ensure basic packages are present
+    apt:
+      name: {{ item }}
+      state: present
+    with_items:
+      - openjdk-11-jdk
+  
+  - name: Ensure group "tomcat" added
+    group:
+      name: tomcat
+
+  - name: Ensure user "tomcat" added
+    user:
+      name: tomcat
+      group: tomcat
+      home: /usr/local/tomcat
+      createhome: no
+
+  - name: Ensure tomcat package is unarchived
+    unarchive:
+      src: https://downloads.apache.org/tomcat/tomcat-9/v9.0.40/bin/apache-tomcat-9.0.40.tar.gz
+      dest: /opt/
+      owner: tomcat
+      group: tomcat
+      remote_src: yes
+
+  - name: Ensure Tomcat symbolic link is created
+    file:
+      src: /opt/apache-tomcat-9.0.40
+      path: /usr/local/tomcat
+      state: link
+
+  - name: Ensure Tomcat service file is present
+    template:
+      src: tomcat.service
+      dest: /etc/systemd/system/tomcat.service
+  
+  - name: Ensure Tomcat started and enabled
+    service:
+      daemon_reload: yes
+      name: tomcat
+      state: started
+      enabled: yes
+
+  - name: Ensure .war application file is transfered from builder to prod
+    synchronize:
+      src: /tmp/boxfuse/target/hello-1.0.war
+      dest: /usr/local/tomcat/webapps/hello-1.0.war
+    delegate_to: builder
