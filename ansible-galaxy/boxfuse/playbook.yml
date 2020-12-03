@@ -1,0 +1,14 @@
+---
+- name: package builder servers provisioning
+  hosts: builder
+  become: yes
+  roles:
+    - base
+    - builder
+
+- name: Tomcat server provisioning
+  hosts: prod
+  become: yes
+  roles:
+    - base
+    - prod

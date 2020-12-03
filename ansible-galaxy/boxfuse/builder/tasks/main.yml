@@ -1,0 +1,9 @@
+---
+# tasks file for builder
+  - name: Ensure local repository is present
+    git:
+      repo: 'https://github.com/boxfuse/boxfuse-sample-java-war-hello.git'
+      dest: /tmp/boxfuse
+
+  - name: Ensure maven package is present
+    shell: mvn clean package -f /tmp/boxfuse/pom.xml

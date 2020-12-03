@@ -14,6 +14,12 @@
       src: index.html
       dst: /var/www/html
 
+  - name: Replace a localhost entry with our own
+    lineinfile:
+      path: /var/www/html/index.nginx-debian.html
+      regexp: '<h1>Welcome to nginx!</h1>'
+      line: '<h1><p><script>document.write(new Date().toLocaleDateString());</script></p></h1>'
+
   - name: Ensure nginx service is started
     service:
       name: nginx

@@ -1,0 +1,6 @@
+---
+# handlers file for prod
+- name: start tomcat service
+  service:
+    name: tomcat
+    state: started
