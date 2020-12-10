@@ -1,0 +1,46 @@
+pipeline {
+  agent {
+    docker {
+        image '104.197.198.255:8765/agent'
+        registryUrl 'http//:104.197.198.255:8765'
+        registryCredentialsId '413c65b9-1a88-4357-b6bd-1952835e41b0'
+    }
+  }
+  
+  stages {
+      
+    stage('git clone ') {
+      steps {
+          sh 'cd /tmp'
+          git 'https://github.com/boxfuse/boxfuse-sample-java-war-hello.git'
+        }
+    }
+
+    stage('build') {
+      steps {
+          sh 'mvn package -f /tmp/boxfuse/pom.xml'
+          sh "cp /tmp/boxfuse/target/hello-1.0.war /tmp-docker-build-context"
+        }
+    }
+
+    stage('push to registry') {
+      steps {
+          withDockerRegistry([credentialsId: '413c65b9-1a88-4357-b6bd-1952835e41b0', url: "http//:104.197.198.255:8765"]) {
+              // we give the image the same version as the .war package
+              def image = docker.build("104.197.198.255:8765/myweb:latest", "--build-arg PACKAGE_VERSION=latest /tmp-docker-build-context")
+              image.push()
+          }
+        }
+    }
+
+    stage ('deploy') {
+      steps {
+          sshagent(credentials : ['bab346b7-7506-413d-9063-52f5bdb7a7e0']) {
+            sh 'ssh -tt -o StrictHostKeyChecking=no root@34.71.98.152 uptime'
+            sh 'docker pull 104.197.198.255:8765/myweb:latest'
+            sh 'docker run -d -p 8080:8080 104.197.198.255:8765/myweb:latest'
+          }
+        }
+      }
+  }
+}
