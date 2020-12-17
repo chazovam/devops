@@ -1,0 +1,21 @@
+version: '2'
+services:
+  app:
+    build: app
+    ports:
+      - '8080:8080'
+    links:
+      - mysql
+
+  mysql:
+    image: mysql:5.7
+    restart: always
+    ports:
+      - '3306:3306'
+    environment:
+      MYSQL_DATABASE: dd
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_USER: test_user
+      MYSQL_PASSWORD: test_password
+    volumes:
+      - ./dump:/docker-entrypoint-initdb.d
