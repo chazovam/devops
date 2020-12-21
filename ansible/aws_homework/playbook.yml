@@ -1,0 +1,172 @@
+---
+- name: prepare infrastructure
+  hosts: local
+  connection: local
+  become: true
+  vars:
+    region_name: 'us-east-1'
+    key_name: 'my_keypair'
+    ami_id: 'ami-00ddb0e5626798373'
+    instance_type: 't2.micro'
+    sg_name: 'EC2SecurityGroupTest'
+    vpc_id: 'vpc-97a57bea'
+    subnet_id: 'subnet-2ac49667'
+    bucket_name: 'test123456marina'
+    iam_s3_role_name: 'S3Connector'
+    instance_names:
+      - builder
+      - web
+
+  tasks:
+    - name: Ensure bucket is present
+      aws_s3:
+        bucket: "{{ bucket_name }}"
+        mode: create
+        region: "{{ region_name }}"
+    - name: Create a new EC2 key pair
+      ec2_key:
+        name: "{{ key_name }}"
+        region: "{{ region_name }}"
+      register: ec2_key
+    - name: Ensure private key is created
+      copy: content="{{ ec2_key.key.private_key }}" dest="./.ssh/{{ key_name }}.pem" mode=0600
+      when: ec2_key.changed
+    - name: Create Security Group
+      ec2_group:
+        name: "{{ sg_name }}"
+        description: "Test Security Group"
+        region: "{{ region_name }}"
+        vpc_id: "{{ vpc_id }}"
+        rules:
+          - proto: tcp
+            ports:
+              - 22
+              - 8080
+            cidr_ip: "0.0.0.0/0"
+            rule_desc: "allow ports 22 and 8080"
+    - name: Ensure EC2 instances present
+      ec2:
+        key_name: "{{ key_name }}"
+        region: "{{ region_name }}"
+        instance_type: "{{ instance_type }}"
+        image: "{{ ami_id }}"
+        vpc_subnet_id: "{{ subnet_id }}"
+        group: "{{ sg_name }}"
+        wait: yes
+        instance_tags:
+          Name: "{{ item }}"
+          Env: sandbox
+        count_tag:
+          Name: "{{ item }}"
+          Env: sandbox
+        exact_count: 1
+        assign_public_ip: yes
+        instance_profile_name: "{{ iam_s3_role_name }}"
+      register: ec2
+      with_items: "{{ instance_names }}"
+
+    - name: Ensure the newly created EC2 instances are added to the ansible hosts
+      local_action: lineinfile
+                    path="hosts"
+                    insertafter="[{{ item.item }}]" 
+                    line="{{ item.instances[0].public_ip }} ansible_user=ubuntu ansible_ssh_private_key_file=.ssh/{{ key_name }}.pem ansible_ssh_extra_args='-o StrictHostKeyChecking=no'"
+      with_items: "{{ ec2.results }}"
+
+    - name: Refresh inventory nodes
+      meta: refresh_inventory
+
+
+- name: build app
+  hosts: builder
+  become: true
+  vars:
+    region_name: 'us-east-1'
+    bucket_name: 'test123456marina'
+
+  tasks:
+    - name: Ensure basic packages are present
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - openjdk-11-jdk
+        - maven
+        - git
+        - awscli
+
+    - name: Ensure local repository is present
+      git:
+        repo: 'https://github.com/boxfuse/boxfuse-sample-java-war-hello.git'
+        dest: /tmp/boxfuse
+
+    - name: Ensure maven package is present
+      shell: mvn clean package -f /tmp/boxfuse/pom.xml 
+
+    - name: Put war to bucket
+      aws_s3:
+        bucket: "{{ bucket_name }}"
+        object: /target/hello.war
+        src: /tmp/boxfuse/target/hello-1.0.war
+        mode: put
+        region: "{{ region_name }}"  
+
+
+- name: run app
+  hosts: web
+  become: true
+  vars:
+    region_name: 'us-east-1'
+    bucket_name: 'test123456marina'
+
+  tasks:
+    - name: Ensure basic packages are present
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - openjdk-11-jdk
+        - awscli
+    
+    - name: Ensure group "tomcat" added
+      group:
+        name: tomcat
+
+    - name: Ensure user "tomcat" added
+      user:
+        name: tomcat
+        group: tomcat
+        home: /usr/local/tomcat
+        createhome: no
+
+    - name: Ensure tomcat package is unarchived
+      unarchive:
+        src: https://downloads.apache.org/tomcat/tomcat-9/v9.0.40/bin/apache-tomcat-9.0.40.tar.gz
+        dest: /opt/
+        owner: tomcat
+        group: tomcat
+        remote_src: yes
+
+    - name: Ensure Tomcat symbolic link is created
+      file:
+        src: /opt/apache-tomcat-9.0.40
+        path: /usr/local/tomcat
+        state: link
+
+    - name: Ensure Tomcat service file is present
+      template:
+        src: tomcat.service
+        dest: /etc/systemd/system/tomcat.service
+    
+    - name: Ensure Tomcat started and enabled
+      service:
+        daemon_reload: yes
+        name: tomcat
+        state: started
+        enabled: yes
+
+    - name: Ensure app is present
+      aws_s3:
+        bucket: "{{ bucket_name }}"
+        object: /target/hello.war
+        dest: /usr/local/tomcat/webapps/hello.war
+        mode: get
