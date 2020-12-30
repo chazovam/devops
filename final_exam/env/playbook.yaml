@@ -1,0 +1,67 @@
+---
+- name: build app
+  hosts: builder
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure basic packages are present
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - docker.io
+        - git
+
+    - name: Ensure local repository is present
+      git:
+        repo: 'https://github.com/chazovam/jenkins_test.git'
+        dest: /tmp/jenkins_test
+
+    - name: Build image and with buildargs
+      docker_image:
+        path: /tmp/jenkins_test
+        name: chazovams/web 
+
+    - name: Log into DockerHub
+      community.general.docker_login:
+        username: chazovams
+        password: latina
+
+    - name: Tag and push to docker hub
+      docker_image:
+        name: chazovams/web:3
+        repository: chazovams/web
+        tag: 3
+        push: yes
+        source: build
+        build:
+          path: /tmp/jenkins_test/.
+
+
+- name: run app
+  hosts: web
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure basic packages are present
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - docker.io
+
+    - name: Log into DockerHub
+      community.general.docker_login:
+        username: chazovams
+        password: latina
+
+    - name: application container
+      docker_container:
+        name: web
+        image: chazovams/web:2
+        state: started
+        pull: yes
+        ports:
+        - "8080:8080"

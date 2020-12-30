@@ -1,0 +1,26 @@
+pipeline {
+  agent {
+    docker {
+        image 'chazovams/agent:latest'
+        registryCredentialsId 'docker-hub-creds'
+        args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
+    }
+  }
+
+  environment {
+        AWS_ACCESS_KEY_ID     = credentials('jenkins-aws-secret-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('jenkins-aws-secret-access-key')
+  }
+  
+  stages {
+      
+    stage('git clone') {
+      steps {
+            dir('tmp/t1') {
+                sh "echo 'hi!'"
+            }
+        }
+    }
+    
+  }
+}

@@ -38,7 +38,7 @@ resource "aws_instance" "web" {
     host = "${self.public_ip}"
     type = "ssh"
     user = "ubuntu"
-    private_key = "${file("~/.ssh/my_keypair.pem")}"
+    private_key = "${file("~/.ssh/my_key")}"
   }
 
   instance_type = "t2.nano"
