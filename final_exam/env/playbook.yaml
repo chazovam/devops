@@ -3,6 +3,9 @@
   hosts: builder
   become: true
   gather_facts: false
+  vars:
+    docker_hub_login: "{{ lookup('env','DOCKER_HUB_LOGIN') }}"
+    docker_hub_password: "{{ lookup('env','DOCKER_HUB_PASSWORD') }}"
 
   tasks:
     - name: Ensure basic packages are present
@@ -18,21 +21,16 @@
         repo: 'https://github.com/chazovam/jenkins_test.git'
         dest: /tmp/jenkins_test
 
-    - name: Build image and with buildargs
-      docker_image:
-        path: /tmp/jenkins_test
-        name: chazovams/web 
-
-    - name: Log into DockerHub
+    - name: Ensure DockerHub logged into
       community.general.docker_login:
-        username: chazovams
-        password: latina
+        username: "{{ docker_hub_login }}"
+        password: "{{ docker_hub_password }}"
 
-    - name: Tag and push to docker hub
+    - name: Ensure image tagged and pushed to docker hub
       docker_image:
-        name: chazovams/web:3
+        name: chazovams/web
         repository: chazovams/web
-        tag: 3
+        tag: 2
         push: yes
         source: build
         build:
@@ -43,6 +41,9 @@
   hosts: web
   become: true
   gather_facts: false
+  vars:
+    docker_hub_login: "{{ lookup('env','DOCKER_HUB_LOGIN') }}"
+    docker_hub_password: "{{ lookup('env','DOCKER_HUB_PASSWORD') }}"
 
   tasks:
     - name: Ensure basic packages are present
@@ -52,12 +53,12 @@
       with_items:
         - docker.io
 
-    - name: Log into DockerHub
+    - name: Ensure DockerHub logged into
       community.general.docker_login:
-        username: chazovams
-        password: latina
+        username: "{{ docker_hub_login }}"
+        password: "{{ docker_hub_password }}"
 
-    - name: application container
+    - name: Ensure application container started
       docker_container:
         name: web
         image: chazovams/web:2

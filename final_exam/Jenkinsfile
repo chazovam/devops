@@ -10,17 +10,36 @@ pipeline {
   environment {
         AWS_ACCESS_KEY_ID     = credentials('jenkins-aws-secret-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('jenkins-aws-secret-access-key')
+        DOCKER_HUB_LOGIN      = credentials('docker-hub-login')
+        DOCKER_HUB_PASSWORD   = credentials('docker-hub-password')
   }
   
   stages {
       
-    stage('git clone') {
+    stage('git clone configs') {
       steps {
-            dir('tmp/t1') {
-                sh "echo 'hi!'"
+            dir('tmp') {
+                git 'https://github.com/chazovam/devops.git'
             }
         }
     }
+
+    stage('TF environment prepare') {
+      steps {
+          dir('tmp/final_exam/env') {
+            sh 'terraform init'
+            sh 'terraform plan -out tfplan'
+            sh 'terraform apply -input=false tfplan'
+          }
+        }
+    }
     
+    stage('ansible apply server config') {
+      steps {
+          dir('tmp/final_exam/env') {
+            sh 'ansible-playbook -i hosts playbook.yaml'
+          }
+        }
+    }
   }
 }
