@@ -28,9 +28,7 @@
 
     - name: Ensure image tagged and pushed to docker hub
       docker_image:
-        name: chazovams/web
-        repository: chazovams/web
-        tag: 2
+        name: chazovams/web:3
         push: yes
         source: build
         build:
@@ -61,7 +59,7 @@
     - name: Ensure application container started
       docker_container:
         name: web
-        image: chazovams/web:2
+        image: chazovams/web:3
         state: started
         pull: yes
         ports:
